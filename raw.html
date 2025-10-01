@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Student Wellness Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  * { font-family: 'Inter', sans-serif; }
+
+  .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+  .card-hover { transition: all 0.3s ease; }
+  .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+  .login-container { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); }
+
+  /* Test UI */
+  .test-container { max-width: 800px; margin: 20px auto; background: #1e293b; border-radius: 12px; padding: 25px; box-shadow: 0 6px 25px rgba(0,0,0,0.7); }
+  .hidden { display: none; }
+  .question { margin: 20px 0; font-size: 20px; font-weight: 600; color: #f1f5f9; }
+  .options div { margin: 10px 0; padding: 12px 15px; border: 2px solid #334155; border-radius: 8px; cursor: pointer; transition: all 0.25s; background: #0f172a; color: #e2e8f0; }
+  .options div:hover { background: #1e3a8a; border-color: #3b82f6; }
+  .options div.selected { background: #1d4ed8; border-color: #60a5fa; font-weight: 500; }
+  .progress-container { width: 100%; background: #334155; border-radius: 8px; margin: 15px 0; height: 12px; overflow: hidden; }
+  .progress-bar { height: 12px; width: 0%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 8px; transition: width 0.3s; }
+  .navigator { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .navigator button { width: 38px; height: 38px; border-radius: 8px; border: 2px solid #475569; background: #0f172a; color: #e2e8f0; cursor: pointer; font-weight: bold; }
+  .navigator button.answered { background: #16a34a; border-color: #22c55e; color: white; }
+  .navigator button.active { border: 2px solid #60a5fa; }
+  .toolbar { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .btn { background: #3b82f6; border: none; color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+  .btn:hover { background: #2563eb; }
+  .btn-secondary { background: #334155; color: #e2e8f0; }
+  .btn-secondary:hover { background: #475569; }
+  #timer { font-weight: bold; font-size: 18px; color: #f87171; }
+  #result h2 { margin-bottom: 10px; color: #60a5fa; }
+  #score { font-size: 22px; margin: 15px 0; font-weight: bold; color: #38bdf8; }
+  .review { margin-top: 20px; padding: 12px; border-top: 2px solid #475569; line-height: 1.5; }
+  .correct { color: #22c55e; font-weight: bold; }
+  .wrong { color: #f87171; font-weight: bold; }
+  .result-actions { margin-top: 20px; display: flex; gap: 15px; }
+
+  /* === Subject Selection Styles (ADDED) === */
+  .subject-grid {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .subject-card {
+    background: #0f172a;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    padding: 20px;
+    width: 160px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #e2e8f0;
+    font-weight: 500;
+  }
+  .subject-card:hover {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+    transform: translateY(-5px);
+  }
+  .subject-card.selected {
+    background: #1d4ed8;
+    border-color: #60a5fa;
+    color: #fff;
+  }
+  .subject-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+  }
+
+  /* Disabled Button Styles */
+  .btn:disabled {
+    background: #475569 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+  }
+
+  /* Resume builder styles */
+  :root { --primary-color: #4CAF50; --secondary-color: #2196F3; --accent-color: #FF9800; --dark-bg: #121212; --dark-card: #1e1e1e; --dark-text: #f5f5f5; --light-bg: #ffffff; --light-card: #f1f1f1; --light-text: #222; }
+
+  .resume-builder-container { max-width: 1100px; margin: auto; padding: 20px; }
+  .resume-header { text-align: center; padding: 10px; margin-bottom: 20px; border-radius: 8px; }
+  .generated-resume-header { background: rgba(76, 175, 80, 0.2); border: 2px solid var(--primary-color); }
+  .uploaded-resume-header { background: rgba(33, 150, 243, 0.2); border: 2px solid var(--secondary-color); }
+  .template-resume-header { background: rgba(255, 152, 0, 0.2); border: 2px solid var(--accent-color); }
+  .resume-view { background: white; color: #333; padding: 40px; border-radius: 10px; max-width: 800px; margin: 20px auto; box-shadow: 0 5px 25px rgba(0,0,0,0.2); }
+  .resume-view h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+  .resume-section { margin-bottom: 20px; }
+  .uploaded-resume { background: #252525; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #444; }
+  .light-mode .uploaded-resume { background: #f7f7f7; border: 1px solid #ddd; }
+  .resume-actions { display: flex; gap: 10px; margin-top: 15px; }
+  .resume-actions button { flex: 1; padding: 10px; }
+  .resume-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #444; flex-wrap: wrap; }
+  .resume-tab { padding: 12px 24px; cursor: pointer; background: #333; margin-right: 5px; border-radius: 5px 5px 0 0; transition: all 0.2s; color: #fff; }
+  .resume-tab.active { background: var(--primary-color); color: white; }
+  .resume-tab-content { display: none; }
+  .resume-tab-content.active { display: block; }
+  .resume-input, .resume-textarea, .resume-select, .resume-button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #444; box-sizing: border-box; font-family: inherit; font-size: 16px; }
+  .resume-button { background: var(--primary-color); color: white; cursor: pointer; border: none; font-weight: bold; transition: all 0.2s; }
+  .resume-button:hover { background: #388E3C; }
+  .resume-card { background: var(--dark-card); padding: 25px; margin: 20px 0; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); }
+  .resume-output { background: #2a2a2a; padding: 30px; border-radius: 10px; margin-top: 25px; }
+  .upload-area { border: 2px dashed #666; padding: 40px; text-align: center; border-radius: 10px; margin: 20px 0; cursor: pointer; transition: all 0.3s; }
+  .upload-icon { font-size: 48px; margin-bottom: 15px; color: var(--primary-color); }
+  .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
+  .action-buttons button { flex: 1; }
+  .download-btn { background: #2196F3; }
+  .delete-btn { background: #f44336; }
+  .view-btn { background: #FF9800; } /* kept for other view buttons outside upload block */
+
+  /* Make create-resume inputs text black (per your request) */
+  .resume-select, .resume-input, .resume-textarea { color: black !important; background: #fff !important; }
+  .resume-select option { color: black !important; }
+
+  /* small helpers */
+  .light-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.03); border-radius: 12px; padding: 12px; }
+
+  @media (max-width: 768px) {
+    .container { padding: 15px; }
+    .tabs, .resume-tabs { flex-direction: column; }
+    .action-buttons, .resume-actions { flex-direction: column; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Smooth transition for theme flipping */
+  body, .card-hover, .resume-card, .test-container, .login-container,
+  .resume-output, .uploaded-resume, .navigator button, .options div,
+  button, input, textarea, select, .modal, #chatbotPage, #chatbotPage1, #testPage,
+  .dashboard-grid .card-hover {
+    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+  }
+
+  /* Light mode overrides for Test Page */
+  .light-mode #testPage {
+    background: var(--light-bg) !important;
+    color: var(--light-text) !important;
+  }
+
+  .light-mode #testPage .test-container {
+    background: var(--light-card) !important;
+    color: var(--light-text) !important;
+    border: 1px solid #ddd !important;
+  }
+
+  .light-mode #testPage .question,
+  .light-mode #testPage .options div,
+  .light-mode #testPage .navigator button,
+  .light-mode #testPage #timer,
+  .light-mode #testPage #score,
+  .light-mode #testPage #result h2 {
+    color: var(--light-text) !important;
+  }
+
+  .light-mode #testPage .options div {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .light-mode #testPage .options div.selected {
+    background: #3b82f6 !important;
+    color: #fff !important;
+    border-color: #60a5fa !important;
+  }
+
+  .light-mode #testPage .navigator button {
+    background: #f1f1f1 !important;
+    border: 1px solid #ccc !important;
+    color: #000 !important;
+  }
+
+  .light-mode #testPage .navigator button.answered {
+    background: #16a34a !important;
+    border-color: #22c55e !important;
+    color: #fff !important;
+  }
+
+  .light-mode #testPage .navigator button.active {
+    border: 2px solid #60a5fa !important;
+  }
+
+  /* Fix for placement test bar visibility in light mode */
+  .light-mode #testPage .test-header {
+    background: #e2e8f0 !important;
+    color: #1e3a8a !important;
+  }
+  .light-mode #testPage .test-header h2,
+  .light-mode #testPage .test-header button {
+    color: #1e3a8a !important;
+  }
+
+  /* Image theme adaptation for cards & subject icons (use class 'invertible' on images that should flip) */
+  .light-mode img.invertible {
+    filter: invert(1) hue-rotate(180deg) brightness(1.08) contrast(0.95);
+    transition: filter 0.4s ease;
+  }
+
+  /* Subject card light-mode overrides */
+  .light-mode .subject-card {
+    background: #f1f1f1 !important;
+    border: 1px solid #ccc !important;
+    color: #000 !important;
+  }
+  .light-mode .subject-card:hover {
+    background: #e6f0ff !important;
+  }
+  .light-mode .subject-card.selected {
+    background: #3b82f6 !important;
+    border-color: #60a5fa !important;
+    color: #fff !important;
+  }
+
+  /* Additional light-mode tweaks for dashboard cards */
+  .light-mode .card-hover {
+    background: var(--light-card) !important;
+    border: 1px solid #ddd !important;
+    color: var(--light-text) !important;
+  }
+
+  /* Avoid inverting video or camera preview */
+  video { background: #000; }
+
+  /* LIGHT MODE OVERRIDES (duplicated near bottom originally - kept compatible) */
+  .light-mode {
+    background: var(--light-bg) !important;
+    color: var(--light-text) !important;
+  }
+
+  /* Override text colors for readability */
+  .light-mode h1,
+  .light-mode h2,
+  .light-mode h3,
+  .light-mode p,
+  .light-mode span,
+  .light-mode label {
+    color: var(--light-text) !important;
+  }
+
+  /* Cards, containers, test UI */
+  .light-mode .card-hover,
+  .light-mode .resume-card,
+  .light-mode .test-container,
+  .light-mode .login-container {
+    background: var(--light-card) !important;
+    color: var(--light-text) !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Inputs */
+  .light-mode input,
+  .light-mode textarea,
+  .light-mode select {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #ccc !important;
+  }
+
+  /* Buttons */
+  .light-mode button {
+    color: #fff !important;
+  }
+
+  /* Dashboard countdown */
+  .light-mode #waterCountdown {
+    color: #444 !important;
+  }
+
+  /* Emotion Recognition Popup fix for light mode */
+  .light-mode #emoRecPopup {
+    background: #f1f1f1 !important;
+    color: #444 !important;
+    border: 1px solid #ccc !important;
+  }
+  .light-mode #emoRecPopup video {
+    border: 1px solid #ddd !important;
+  }
+
+  /* Alert Modals fix for light mode */
+  .light-mode .modal-content {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #ccc !important;
+  }
+  .light-mode .modal-text {
+    color: #444 !important;
+  }
+  
+  /* NEW: Chatbot Header Fixes */
+  .chatbot-header {
+    background: #3b82f6; /* A clear, friendly blue */
+    color: #ffffff;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .light-mode .chatbot-header {
+    background: #60a5fa !important;
+  }
+  /* Fix Exit button on chatbot pages in light mode */
+  .light-mode .chatbot-header button {
+    color: #1e3a8a !important;
+  }
+
+  /* Dark mode remains unchanged */
+  .dark-mode {
+    background: var(--dark-bg) !important;
+    color: var(--dark-text) !important;
+  }
+
+  /* Dashboard Grid Layout Fix */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 768px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Resume Output Light mode fix */
+  .light-mode .resume-output {
+    background: var(--light-card) !important;
+    color: var(--light-text) !important;
+    border: 1px solid #ddd !important;
+  }
+
+</style>
+</head>
+
+<body class="min-h-screen gradient-bg flex items-center justify-center p-4 text-white">
+
+<div class="w-full max-w-md" id="loginPage">
+  <div class="login-container rounded-2xl p-8 shadow-2xl">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-white mb-2">Student Wellness Hub</h1>
+      <p class="text-white/80">Your AI-powered academic companion</p>
+    </div>
+    <form class="space-y-6" id="loginForm">
+      <input class="w-full px-4 py-3 rounded-lg bg-[#0f172a] border border-gray-600 text-white" id="username" placeholder="Username" required type="text"/>
+      <input class="w-full px-4 py-3 rounded-lg bg-[#0f172a] border border-gray-600 text-white" placeholder="Password" required type="password"/>
+      <button class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg" type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<div class="hidden w-full max-w-6xl" id="homePage">
+  <div class="flex justify-end mb-4" id="dashboardTopBar">
+    <div class="flex items-center gap-4">
+      <button id="themeToggle" class="px-3 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm">🌙 Dark</button>
+      <span id="waterCountdown" class="text-sm text-gray-300">💧 Water in 30m 0s</span>
+    </div>
+  </div>
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold" id="welcomeMsg">Welcome back, Student!</h1>
+  </div>
+
+  <div class="dashboard-grid">
+    <div class="bg-[#1e293b] rounded-2xl p-6 card-hover">
+      <h3 class="text-xl font-semibold">Mitra 🤖</h3>
+      <p class="text-gray-400 mt-2 text-sm">Get instant answers to your academic questions and general queries with our AI assistant.</p>
+      <button class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded-lg mt-4" onclick="openChatbotPage()">Start Chatting</button>
+    </div>
+
+    <div class="bg-[#1e293b] rounded-2xl p-6 card-hover">
+      <h3 class="text-xl font-semibold">Mann ki Baat😟</h3>
+      <p class="text-gray-400 mt-2 text-sm">A safe space for emotional support and mental health conversations with our empathetic AI</p>
+      <button class="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg mt-4" onclick="openChatbotPage1()">Start Venting</button>
+    </div>
+
+    <div class="bg-[#1e293b] rounded-2xl p-6 card-hover">
+      <h3 class="text-xl font-semibold">Pariksha 🎯</h3>
+      <p class="text-gray-400 mt-2 text-sm">AI-powered test preparation with personalized questions and instant feedback.</p>
+      <button class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg mt-4" onclick="openTestPage()">Take a Test</button>
+    </div>
+
+    <div class="bg-[#1e293b] rounded-2xl p-6 card-hover">
+      <h3 class="text-xl font-semibold">Lakshya ✉</h3>
+      <p class="text-gray-400 mt-2 text-sm">Upload your resume and get AI-powered suggestions for improvement and optimization.</p>
+      <button class="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg mt-4" onclick="openResumeBuilder()">Open Resume Builder</button>
+    </div>
+  </div>
+</div>
+
+<div class="hidden w-full h-screen flex flex-col bg-[#0f172a]" id="chatbotPage">
+  <div class="chatbot-header">
+    <h2 class="text-lg font-semibold">General Bot</h2>
+    <button class="bg-white text-blue-600 px-4 py-2 rounded-lg" onclick="goBackToDashboard()">⬅ Exit</button>
+  </div>
+  <iframe class="flex-1 w-full border-0" src="https://www.chatbase.co/chatbot-iframe/oTDnER49s4deA5rK2LgUK"></iframe>
+</div>
+
+<div class="hidden w-full h-screen flex flex-col bg-[#0f172a]" id="chatbotPage1">
+  <div class="chatbot-header">
+    <h2 class="text-lg font-semibold">Venting Wall 😟</h2>
+    <button class="bg-white text-blue-600 px-4 py-2 rounded-lg" onclick="goBackToDashboard()">⬅ Exit</button>
+  </div>
+  <iframe class="flex-1 w-full border-0" src="https://www.chatbase.co/chatbot-iframe/60HMV8E4Ja-DcmRc_72-n"></iframe>
+</div>
+
+<div class="hidden w-full h-screen flex flex-col bg-[#0f172a] text-white overflow-y-auto" id="testPage">
+  <div class="bg-[#1e293b] text-[#60a5fa] p-4 flex justify-between items-center shadow-lg test-header">
+    <h2 class="text-lg font-semibold">Placement Test</h2>
+    <button class="bg-white text-blue-600 px-4 py-2 rounded-lg" onclick="goBackToDashboard()">⬅ Exit</button>
+  </div>
+
+  <div class="test-container">
+    <div class="space-y-4" id="setup">
+      <h3 class="text-xl font-semibold">Select Subject</h3>
+      <div class="subject-grid" id="subjectSelection">
+        <div class="subject-card" data-subject="computer" onclick="selectSubject(this)">
+          <div class="subject-icon">💻</div>
+          <h4>Computer Science</h4>
+        </div>
+        <div class="subject-card" data-subject="medical" onclick="selectSubject(this)">
+          <div class="subject-icon">🩺</div>
+          <h4>Medical</h4>
+        </div>
+        <div class="subject-card" data-subject="finance" onclick="selectSubject(this)">
+          <div class="subject-icon">💰</div>
+          <h4>Finance</h4>
+        </div>
+      </div>
+      
+      <label>No. of Questions:
+        <input class="w-full bg-[#0f172a] text-white border border-gray-600 rounded-lg p-2" id="numQuestions" max="50" min="1" type="number" value="5"/>
+      </label>
+      <label>Duration (minutes):
+        <input class="w-full bg-[#0f172a] text-white border-gray-600 rounded-lg p-2" id="duration" max="60" min="1" type="number" value="2"/>
+      </label>
+      <button class="btn w-full" id="startBtn" disabled>Start Test</button>
+    </div>
+
+    <div class="hidden" id="test">
+      <div class="flex justify-between items-center">
+        <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+        <div>⏳ Time Left: <span id="timer"></span></div>
+      </div>
+
+      <div id="qContainer"></div>
+      <div class="navigator" id="navigator"></div>
+
+      <div class="toolbar">
+        <div>
+          <button class="btn btn-secondary" onclick="prevQ()">← Prev</button>
+          <button class="btn" onclick="nextQ()">Next →</button>
+        </div>
+        <button class="btn" id="finishBtn">Submit Test</button>
+      </div>
+    </div>
+
+    <div class="hidden" id="result">
+      <h2>Results</h2>
+      <div id="score"></div>
+      <div id="review"></div>
+      <div class="result-actions">
+        <button class="btn" onclick="restartTest()">Restart</button>
+        <button class="btn btn-secondary" onclick="goBackToDashboard()">Exit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="resumeBuilderPage" class="hidden w-full resume-builder-container">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">Smart Resume Builder</h2>
+    <button onclick="goBackToDashboard()" class="bg-gray-800 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-700 transition">⬅ Back to Dashboard</button>
+  </div>
+
+  <div class="resume-tabs">
+    <div class="resume-tab active" onclick="switchResumeTab('create')">Create Resume</div>
+    <div class="resume-tab" onclick="switchResumeTab('upload')">Upload Resume</div>
+    <div class="resume-tab" onclick="switchResumeTab('generate')">Generate Resume</div>
+  </div>
+
+  <div id="createResumeTab" class="resume-tab-content active">
+    <div class="resume-card">
+      <h2>Enter Your Details</h2>
+      <input type="text" id="name" class="resume-input" placeholder="Full Name">
+      <input type="email" id="email" class="resume-input" placeholder="Email">
+      <input type="tel" id="phone" class="resume-input" placeholder="Phone Number">
+      <textarea id="summary" class="resume-textarea" placeholder="Professional Summary (2-3 sentences)"></textarea>
+
+      <h3>Education</h3>
+      <textarea id="education" class="resume-textarea" placeholder="Education (one per line in format: Degree, Institution, Year)"></textarea>
+
+      <h3>Skills</h3>
+      <textarea id="skills" class="resume-textarea" placeholder="Skills (comma separated)"></textarea>
+
+      <h3>Projects</h3>
+      <textarea id="projects" class="resume-textarea" placeholder="Projects (one per line)"></textarea>
+
+      <h3>Work Experience</h3>
+      <select id="experience" class="resume-select" onchange="toggleExperience()">
+        <option value="">-- Select --</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+
+      <div id="expDetails" style="display:none;">
+        <div id="experienceContainer"></div>
+        <button class="add-btn resume-button" onclick="addExperience()">+ Add Another Experience</button>
+      </div>
+
+      <div id="interestBox" style="display:none;">
+        <h3>Select Your Domain / Career Interest</h3>
+        <select id="interest" class="resume-select" onchange="showDomainTips()">
+          <option value="">-- Select Domain --</option>
+          <option value="AI">Artificial Intelligence</option>
+          <option value="ML">Machine Learning</option>
+          <option value="DataScience">Data Science</option>
+          <option value="Cybersecurity">Cybersecurity</option>
+          <option value="WebDev">Web Development</option>
+          <option value="MobileDev">Mobile Development</option>
+          <option value="CloudComputing">Cloud Computing</option>
+          <option value="DevOps">DevOps</option>
+          <option value="UIUX">UI/UX Design</option>
+          <option value="Finance">Finance & Banking</option>
+          <option value="Marketing">Digital Marketing</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Education">Education</option>
+          <option value="Content">Content Creation</option>
+        </select>
+      </div>
+
+      <div id="domainTips" style="display: none;">
+        <h3>Performance Tips & Recommended Courses</h3>
+        <div id="tipsContent"></div>
+      </div>
+
+      <div class="action-buttons">
+        <button onclick="generateResume()" class="resume-button">Generate Resume</button>
+        <button onclick="saveResume()" class="resume-button download-btn">Save Resume</button>
+        <button onclick="viewGeneratedResume()" class="resume-button view-btn">View Resume</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="uploadResumeTab" class="resume-tab-content">
+    <div class="resume-card">
+      <h2>Upload Your Resume</h2>
+      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📁</div>
+        <p>Click to upload or drag and drop</p>
+        <p>PDF, DOCX, or TXT files (Max 5MB)</p>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display: none;" onchange="handleFileUpload(this.files)">
+      </div>
+
+      <div id="uploadResult"></div>
+
+      <div id="uploadedResume" style="display: none;" class="uploaded-resume">
+        <h3>Uploaded Resume</h3>
+        <p id="resumeFileName"></p>
+
+        <div id="resumeFeedback" class="mt-4 p-3 bg-gray-800 text-white rounded"></div>
+
+        <div class="resume-actions">
+          <button onclick="editResume()" class="resume-button download-btn">Edit Resume</button>
+          <button onclick="deleteResume()" class="resume-button delete-btn">Delete Resume</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="generateResumeTab" class="resume-tab-content">
+    <div class="resume-card">
+      <h2>Generate Resume from Template</h2>
+      <p>Select a template and we'll help you create a professional resume</p>
+
+      <h3>Choose Template Style</h3>
+      <select id="templateStyle" class="resume-select">
+        <option value="professional">Professional</option>
+        <option value="modern">Modern</option>
+        <option value="creative">Creative</option>
+        <option value="academic">Academic</option>
+        <option value="executive">Executive</option>
+        <option value="minimalist">Minimalist</option>
+      </select>
+
+      <h3>Select Your Industry</h3>
+      <select id="industry" class="resume-select">
+        <option value="tech">Technology & IT</option>
+        <option value="business">Business & Finance</option>
+        <option value="healthcare">Healthcare</option>
+        <option value="education">Education</option>
+        <option value="creative">Creative Arts & Media</option>
+        <option value="engineering">Engineering</option>
+        <option value="marketing">Marketing & Sales</option>
+      </select>
+
+      <h3>Experience Level</h3>
+      <select id="experienceLevel" class="resume-select">
+        <option value="student">Student/Entry Level</option>
+        <option value="intern">Intern</option>
+        <option value="junior">Junior (0-2 years)</option>
+        <option value="mid">Mid-Level (3-5 years)</option>
+        <option value="senior">Senior (6-9 years)</option>
+        <option value="executive">Executive (10+ years)</option>
+      </select>
+
+      <div class="action-buttons">
+        <button onclick="generateFromTemplate()" class="resume-button">Generate Resume</button>
+        <button onclick="viewTemplateResume()" class="resume-button view-btn">View Resume</button>
+      </div>
+
+      <div id="templateOutput" class="resume-output" style="display: none; margin-top: 30px;">
+        <h3>Your Generated Resume</h3>
+        <div id="generatedResumeContent"></div>
+        <div class="action-buttons">
+          <button onclick="saveGeneratedResume()" class="resume-button download-btn">Download Resume</button>
+          <button onclick="editGeneratedResume()" class="resume-button view-btn">Edit Resume</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resumeOutput" class="resume-output"></div>
+  <div id="careerPath" class="resume-output"></div>
+</div>
+
+<div class="fixed bottom-4 right-4 bg-[#1e293b] text-white rounded-xl shadow-2xl p-2" id="emoRecPopup">
+  <video autoplay height="150" id="emoVideo" muted width="200"></video>
+  <p class="text-sm mt-2">Emotion: <span id="emoLabel">Loading...</span></p>
+</div>
+
+<div class="fixed inset-0 flex items-center justify-center bg-black/70 hidden" id="emotionAlert">
+  <div class="bg-[#1e293b] text-white rounded-2xl p-6 w-80 text-center shadow-2xl border border-gray-600 modal-content">
+    <h2 class="text-lg font-bold mb-2">We noticed you might be upset 😟</h2>
+    <p class="text-gray-300 mb-4 modal-text">Do you want to talk about it?</p>
+    <div class="flex justify-center gap-4">
+      <button class="bg-blue-600 px-4 py-2 rounded-lg" onclick="closeEmotionAlert()">I'm Okay</button>
+      <button class="bg-red-600 px-4 py-2 rounded-lg" onclick="goToChatFromAlert()">Talk to Bot</button>
+    </div>
+  </div>
+</div>
+
+<div class="fixed inset-0 flex items-center justify-center bg-black/70 hidden" id="waterBreak">
+  <div class="bg-[#1e293b] text-white rounded-2xl p-6 w-80 text-center shadow-2xl border border-gray-600 modal-content">
+    <h2 class="text-lg font-bold mb-2">💧 Time to Hydrate!</h2>
+    <p class="text-gray-300 mb-4 modal-text">Take a short break and drink some water.</p>
+    <button class="bg-green-600 px-4 py-2 rounded-lg" onclick="closeWaterBreak()">Got it</button>
+  </div>
+</div>
+
+<script>
+  // basic DOM helper
+  function $(id){ return document.getElementById(id); }
+
+  // LOGIN & NAV
+  const loginForm = $('loginForm');
+  const usernameInput = $('username');
+  const welcomeMsg = $('welcomeMsg');
+  const loginPage = $('loginPage');
+  const homePage = $('homePage');
+  const chatbotPage = $('chatbotPage');
+  const chatbotPage1 = $('chatbotPage1');
+  const testPage = $('testPage');
+  const resumeBuilderPage = $('resumeBuilderPage');
+
+  loginForm.addEventListener('submit', e => {
+    e.preventDefault();
+    welcomeMsg.textContent = "Welcome back, " + usernameInput.value + "!";
+    loginPage.classList.add('hidden');
+    homePage.classList.remove('hidden');
+    startEmoRec();
+    startWaterBreakReminder();
+  });
+
+  function openChatbotPage(){ homePage.classList.add('hidden'); chatbotPage.classList.remove('hidden'); }
+  function openChatbotPage1(){ homePage.classList.add('hidden'); chatbotPage1.classList.remove('hidden'); }
+  function openTestPage(){ 
+    homePage.classList.add('hidden'); 
+    testPage.classList.remove('hidden'); 
+    document.querySelectorAll('.subject-card').forEach(card => card.classList.remove('selected'));
+    state.subject = null;
+    $('startBtn').disabled = true;
+  }
+  function openResumeBuilder(){ homePage.classList.add('hidden'); resumeBuilderPage.classList.remove('hidden'); }
+  function goBackToDashboard(){
+    chatbotPage.classList.add('hidden');
+    chatbotPage1.classList.add('hidden');
+    testPage.classList.add('hidden');
+    resumeBuilderPage.classList.add('hidden');
+    homePage.classList.remove('hidden');
+  }
+
+  function selectSubject(card) {
+    document.querySelectorAll('.subject-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.subject = card.dataset.subject || card.getAttribute('data-subject') || null;
+    const startBtn = $('startBtn');
+    if (startBtn) startBtn.disabled = false;
+  }
+
+  const computerQuestions = [
+    {text:"Which data structure uses FIFO?",options:["Stack","Queue","Tree","Graph"],answer:1},
+    {text:"Time complexity of binary search?",options:["O(n)","O(n log n)","O(log n)","O(1)"],answer:2},
+    {text:"Inorder of BST gives?",options:["Random","Sorted","Reverse","None"],answer:1},
+    {text:"Which SQL keyword removes duplicates?",options:["DISTINCT","UNIQUE","ONLY","CLEAN"],answer:0},
+    {text:"Which is not OOP concept?",options:["Encapsulation","Polymorphism","Recursion","Inheritance"],answer:2},
+    {text:"Which sorting is stable?",options:["Merge Sort","Quick Sort","Heap Sort","Selection Sort"],answer:0},
+    {text:"OSI layer for routing?",options:["Transport","Network","Data Link","Application"],answer:1},
+    {text:"Which protocol is connectionless?",options:["TCP","UDP","HTTP","FTP"],answer:1},
+    {text:"Default port of HTTPS?",options:["80","21","443","25"],answer:2},
+    {text:"Which data structure is used in recursion?",options:["Queue","Stack","Array","Graph"],answer:1},
+    {text:"What is the full form of 'URL'?", options: ["Uniform Resource Locator", "Universal Resource Link", "User Request Language", "Unified Resource Locator"], answer: 0},
+    {text:"Which HTML tag is used to define an internal stylesheet?", options: ["<script>", "<style>", "<css>", "<link>"], answer: 1},
+    {text:"Which of the following is not a programming language?", options: ["Java", "Python", "SQL", "HTML"], answer: 3},
+    {text:"What does CSS stand for?", options: ["Creative Style Sheets", "Cascading Style Sheets", "Computer Style Sheets", "Cascading Simple Sheets"], answer: 1},
+    {text:"Which of the following is an example of a single-line comment in Python?", options: ["// This is a comment", "/* This is a comment */", "# This is a comment", ""], answer: 2},
+    {text:"What is a primary key in a database?", options: ["A key that uniquely identifies each record in a table.", "A key that links two tables together.", "A key that can have duplicate values.", "A key that defines a foreign key constraint."], answer: 0},
+    {text:"Which sorting algorithm has the worst-case time complexity of O(n^2)?", options: ["Merge Sort", "Quick Sort", "Bubble Sort", "Heap Sort"], answer: 2},
+    {text:"What is the purpose of a 'for' loop in programming?", options: ["To execute a block of code only once.", "To execute a block of code as long as a condition is true.", "To execute a block of code a specified number of times.", "To handle errors in a program."], answer: 2},
+    {text:"Which of the following is a network protocol used for file transfer?", options: ["HTTP", "SMTP", "FTP", "DNS"], answer: 2},
+    {text:"What does API stand for?", options: ["Application Protocol Interface", "Application Programming Interface", "Advanced Programming Instruction", "Automated Program Interface"], answer: 1},
+    {text:"What is 'polymorphism' in object-oriented programming?", options: ["The ability to have multiple forms.", "The ability to inherit from multiple classes.", "The ability to hide implementation details.", "The ability to access private members of a class."], answer: 0},
+    {text:"Which of the following is a dynamically-typed language?", options: ["C++", "Java", "Python", "C#"], answer: 2},
+    {text:"What is the main difference between 'while' and 'do-while' loops?", options: ["'while' loop executes at least once, 'do-while' does not.", "'do-while' loop executes at least once, 'while' does not.", "There is no difference.", "'while' loops are faster than 'do-while' loops."], answer: 1},
+    {text:"What does 'CPU' stand for?", options: ["Central Processing Unit", "Central Program Unit", "Computer Personal Unit", "Computer Processing Unit"], answer: 0},
+    {text:"Which data structure is best for implementing a 'Last-In, First-Out' (LIFO) behavior?", options: ["Queue", "Stack", "Array", "Linked List"], answer: 1},
+    {text:"What is the function of the 'WHERE' clause in a SQL statement?", options: ["To sort the results.", "To filter the results based on a condition.", "To group the results.", "To join tables."], answer: 1},
+    {text:"Which of the following is a low-level programming language?", options: ["Python", "C", "Java", "Assembly Language"], answer: 3},
+    {text:"What is the purpose of a firewall?", options: ["To speed up network traffic.", "To prevent unauthorized access to a network.", "To compress data.", "To manage user accounts."], answer: 1},
+    {text:"Which of the following is a version control system?", options: ["Git", "Docker", "Jira", "Jenkins"], answer: 0},
+    {text:"What does 'DNS' stand for?", options: ["Domain Name Server", "Data Network System", "Dynamic Naming Service", "Domain Naming System"], answer: 0},
+    {text:"What is the difference between '==' and '===' in JavaScript?", options: ["No difference.", "'==' checks for value equality, '===' checks for both value and type equality.", "'===' checks for value equality, '==' checks for both value and type equality.", "Both check for value and type equality."], answer: 1},
+    {text:"What is a 'fork' in a Unix/Linux operating system?", options: ["A command to create a copy of a file.", "A system call that creates a new process.", "A command to connect to a remote server.", "A command to list all running processes."], answer: 1},
+    {text:"Which of the following is an example of a compiled language?", options: ["Python", "JavaScript", "C++", "Ruby"], answer: 2},
+    {text:"What is the purpose of the 'GROUP BY' clause in SQL?", options: ["To sort the result set.", "To filter the result set.", "To aggregate data into groups.", "To join tables."], answer: 2},
+    {text:"What is a 'class' in object-oriented programming?", options: ["A function that performs a specific task.", "A blueprint for creating objects.", "A variable that stores a value.", "A type of data structure."], answer: 1},
+    {text:"What is a 'thread' in computing?", options: ["A type of memory.", "A sequence of instructions that can be executed independently.", "A type of network cable.", "A file system."], answer: 1},
+    {text:"Which of the following is a cloud computing service model?", options: ["PaaS", "IoT", "AI", "Blockchain"], answer: 0},
+    {text:"What is the role of a 'router' in a network?", options: ["To broadcast data to all devices.", "To connect devices within a single network.", "To forward data packets between different networks.", "To filter network traffic."], answer: 2},
+    {text:"What is 'agile' software development?", options: ["A rigid, sequential approach to development.", "An iterative, flexible approach to development.", "A development model that focuses on documentation.", "A development model that uses only one team."], answer: 1},
+    {text:"What is the purpose of a 'foreign key' in a database?", options: ["To uniquely identify a record.", "To enforce referential integrity between two tables.", "To sort the data.", "To create an index."], answer: 1},
+    {text:"What is a 'cache'?", options: ["A type of database.", "A temporary storage area for frequently accessed data.", "A programming language.", "A network protocol."], answer: 1},
+    {text:"Which of the following is a common hashing algorithm?", options: ["AES", "RSA", "SHA-256", "MD5"], answer: 2},
+    {text:"What is 'inheritance' in OOP?", options: ["A mechanism where one class acquires the properties of another.", "A way to hide data from other classes.", "A way to overload methods.", "A way to create multiple objects from a single class."], answer: 0},
+    {text:"What is the 'DOM' in web development?", options: ["Document Object Model", "Data Object Method", "Digital Output Machine", "Document Order Model"], answer: 0},
+    {text:"Which HTTP method is used to retrieve data from a server?", options: ["POST", "PUT", "DELETE", "GET"], answer: 3},
+    {text:"What is a 'stack overflow' error?", options: ["An error that occurs when a stack data structure is empty.", "An error that occurs when a program tries to use too much memory on the call stack.", "An error that occurs when a stack is not initialized.", "An error that occurs when a stack is full."], answer: 1},
+    {text:"Which of the following is a type of cyber attack that floods a server with traffic?", options: ["Phishing", "Malware", "DDoS", "SQL Injection"], answer: 2},
+    {text:"What is the purpose of a 'loop'?", options: ["To handle exceptions.", "To repeat a block of code.", "To define a function.", "To declare a variable."], answer: 1},
+    {text:"Which of the following is a mobile application development framework?", options: ["Django", "Flask", "React Native", "Spring"], answer: 2},
+    {text:"What is 'machine learning'?", options: ["Programming computers to perform a specific task.", "Teaching computers to learn from data without being explicitly programmed.", "A type of database.", "A networking protocol."], answer: 1}
+  ];
+
+  const medicalQuestions = [
+    {text:"Which vitamin is produced when skin is exposed to sunlight?",options:["Vitamin A","Vitamin B12","Vitamin C","Vitamin D"],answer:3},
+    {text:"Normal body temperature in Celsius?",options:["36.5-37.5","35","39","40"],answer:0},
+    {text:"Which blood group is universal donor?",options:["O-","O+","AB+","AB-"],answer:0},
+    {text:"Largest organ in the human body?",options:["Liver","Skin","Brain","Heart"],answer:1},
+    {text:"Which artery supplies the heart?",options:["Carotid","Pulmonary","Coronary","Femoral"],answer:2},
+    {text:"Which organ filters blood to form urine?",options:["Liver","Lungs","Kidney","Pancreas"],answer:2},
+    {text:"Which cell carries oxygen in blood?",options:["White blood cell","Platelet","Red blood cell","Plasma"],answer:2},
+    {text:"Which vitamin is necessary for blood clotting?",options:["Vitamin C","Vitamin K","Vitamin A","Vitamin D"],answer:1},
+    {text:"Which condition is high blood sugar called?",options:["Hypoglycemia","Hyperglycemia","Hypertension","Hypotension"],answer:1},
+    {text:"Which is a sign of inflammation?",options:["Redness","Cold skin","Hair loss","None"],answer:0},
+    {text:"What is the function of the cerebellum?", options: ["Memory", "Balance and coordination", "Speech", "Vision"], answer: 1},
+    {text:"Which bone is also known as the collarbone?", options: ["Scapula", "Sternum", "Clavicle", "Femur"], answer: 2},
+    {text:"What is the main function of red blood cells?", options: ["Fighting infection", "Carrying oxygen", "Clotting blood", "Producing antibodies"], answer: 1},
+    {text:"Which part of the brain is responsible for regulating breathing and heart rate?", options: ["Cerebrum", "Cerebellum", "Medulla oblongata", "Hypothalamus"], answer: 2},
+    {text:"What is the powerhouse of the cell?", options: ["Nucleus", "Ribosome", "Mitochondria", "Cytoplasm"], answer: 2},
+    {text:"What is a group of cells working together to perform a specific function?", options: ["Organ", "System", "Tissue", "Organism"], answer: 2},
+    {text:"Which gland is known as the 'master gland' of the endocrine system?", options: ["Thyroid", "Adrenal", "Pituitary", "Pancreas"], answer: 2},
+    {text:"What is the medical term for high blood pressure?", options: ["Hypotension", "Hypertension", "Tachycardia", "Bradycardia"], answer: 1},
+    {text:"Which of the following is a long-term complication of diabetes?", options: ["Hypoglycemia", "Retinopathy", "Influenza", "Tonsillitis"], answer: 1},
+    {text:"What is the primary function of the large intestine?", options: ["Digestion of food", "Absorption of nutrients", "Absorption of water and electrolytes", "Filtering blood"], answer: 2},
+    {text:"What is the main component of bone?", options: ["Calcium and phosphorus", "Sodium and potassium", "Iron and zinc", "Magnesium and copper"], answer: 0},
+    {text:"Which vitamin deficiency causes scurvy?", options: ["Vitamin A", "Vitamin B1", "Vitamin C", "Vitamin D"], answer: 2},
+    {text:"What is a pathogen?", options: ["A type of cell in the body", "A disease-causing organism", "A type of medication", "A chemical in the brain"], answer: 1},
+    {text:"Which organ produces insulin?", options: ["Liver", "Stomach", "Pancreas", "Kidney"], answer: 2},
+    {text:"What is the purpose of a vaccine?", options: ["To cure an illness", "To prevent a future illness", "To reduce fever", "To relieve pain"], answer: 1},
+    {text:"Which disorder is characterized by an autoimmune response that attacks the joints?", options: ["Osteoporosis", "Rheumatoid arthritis", "Gout", "Scoliosis"], answer: 1},
+    {text:"What is the role of white blood cells?", options: ["Carrying oxygen", "Fighting infection", "Clotting blood", "Transporting hormones"], answer: 1},
+    {text:"Which part of the heart receives oxygenated blood from the lungs?", options: ["Right atrium", "Right ventricle", "Left atrium", "Left ventricle"], answer: 2},
+    {text:"What is an 'epidemic'?", options: ["A disease that is always present in a population.", "A sudden increase in the number of cases of a disease.", "A worldwide spread of a disease.", "A disease that affects only one person."], answer: 1},
+    {text:"Which of the following is a type of protein that acts as a catalyst?", options: ["Enzyme", "Hormone", "Antibody", "Vitamin"], answer: 0},
+    {text:"What is the largest part of the brain?", options: ["Brainstem", "Cerebellum", "Cerebrum", "Hypothalamus"], answer: 2},
+    {text:"Which of the following is a symptom of a heart attack?", options: ["Numbness in toes", "Chest pain", "Fever", "Cough"], answer: 1},
+    {text:"What is the medical term for a 'stroke'?", options: ["Myocardial infarction", "Cerebrovascular accident", "Cardiomyopathy", "Hypertension"], answer: 1},
+    {text:"Which hormone is responsible for the 'fight or flight' response?", options: ["Insulin", "Glucagon", "Adrenaline (Epinephrine)", "Cortisol"], answer: 2},
+    {text:"What is a 'biopsy'?", options: ["A blood test", "The surgical removal of a small piece of tissue for examination", "A type of X-ray", "A type of physical therapy"], answer: 1},
+    {text:"Which nutrient is a primary source of energy for the body?", options: ["Protein", "Fat", "Carbohydrates", "Vitamins"], answer: 2},
+    {text:"What is 'anemia'?", options: ["A condition of high red blood cell count", "A condition of low red blood cell count or hemoglobin", "A type of blood cancer", "A condition of high blood pressure"], answer: 1},
+    {text:"Which part of the eye is responsible for color vision?", options: ["Pupil", "Cornea", "Iris", "Retina (specifically cones)"], answer: 3},
+    {text:"What is the medical term for 'fever'?", options: ["Hypothermia", "Hyperthermia", "Pyrexia", "Apyrexia"], answer: 2},
+    {text:"Which system is responsible for breaking down food into nutrients?", options: ["Nervous system", "Cardiovascular system", "Digestive system", "Respiratory system"], answer: 2},
+    {text:"What is the medical term for 'bruise'?", options: ["Laceration", "Abrasion", "Contusion", "Fracture"], answer: 2},
+    {text:"Which organ is responsible for detoxification of the body?", options: ["Kidney", "Lungs", "Spleen", "Liver"], answer: 3},
+    {text:"What is the function of antibodies?", options: ["To produce hormones", "To carry oxygen", "To identify and neutralize foreign objects", "To clot blood"], answer: 2},
+    {text:"What is the difference between an antiseptic and a disinfectant?", options: ["Antiseptics kill germs on living tissue, disinfectants on objects.", "Disinfectants kill germs on living tissue, antiseptics on objects.", "There is no difference.", "Antiseptics are stronger than disinfectants."], answer: 0},
+    {text:"What is 'tuberculosis'?", options: ["A viral infection of the skin", "A bacterial infection that affects the lungs", "A fungal infection of the blood", "A genetic disorder"], answer: 1},
+    {text:"What is 'phobia'?", options: ["A type of flu", "A common cold", "An irrational fear", "A type of cancer"], answer: 2},
+    {text:"Which part of the ear is responsible for hearing?", options: ["Inner ear", "Middle ear", "Outer ear", "Eustachian tube"], answer: 0},
+    {text:"What is the medical term for a 'runny nose'?", options: ["Cough", "Rhinitis", "Sinusitis", "Bronchitis"], answer: 1},
+    {text:"Which of the following is a symptom of 'meningitis'?", options: ["Itchy skin", "Stiff neck", "Diarrhea", "Joint pain"], answer: 1},
+    {text:"Which body system includes the skin, hair, and nails?", options: ["Endocrine system", "Nervous system", "Integumentary system", "Immune system"], answer: 2}
+  ];
+
+  const financeQuestions = [
+    {text:"What does ROI stand for?",options:["Rate of Interest","Return on Investment","Revenue on Income","Risk of Inflation"],answer:1},
+    {text:"Which is a liability?",options:["Cash","Inventory","Bank Loan","Equipment"],answer:2},
+    {text:"Which market deals with long-term securities?",options:["Money Market","Capital Market","Forex Market","Commodity Market"],answer:1},
+    {text:"What is inflation?",options:["Rise in general price level","Fall in interest rates","Increase in employment","Growth of GDP"],answer:0},
+    {text:"What is India’s central bank?",options:["SBI","HDFC","RBI","Axis"],answer:2},
+    {text:"Which is an example of equity?",options:["Bank Loan","Bonds","Shares","Deposit"],answer:2},
+    {text:"What is liquidity?",options:["Ability to pay short-term obligations","Profitability","Market share","None"],answer:0},
+    {text:"Which financial statement shows assets and liabilities?",options:["Income Statement","Balance Sheet","Cash Flow","Equity Statement"],answer:1},
+    {text:"Which investment is typically safest?",options:["Stocks","Bonds","Derivatives","Crypto"],answer:1},
+    {text:"What is diversification?",options:["Putting all money in one asset","Spreading investments across assets","Avoiding investment","None"],answer:1},
+    {text:"What does IPO stand for?", options: ["International Public Offer", "Initial Public Offering", "Internal Profit Option", "Investment Portfolio Organization"], answer: 1},
+    {text:"What is a 'bull market'?", options: ["A market where prices are falling.", "A market where prices are rising.", "A market with high volatility.", "A market with low trading volume."], answer: 1},
+    {text:"What is 'compounding' in finance?", options: ["Earning interest on the principal only.", "Earning interest on both the principal and accumulated interest.", "A type of bond.", "The process of combining two companies."], answer: 1},
+    {text:"Which of the following is a measure of a company's profitability?", options: ["Debt-to-equity ratio", "Current ratio", "Gross margin", "Price-to-earnings ratio"], answer: 2},
+    {text:"What is a 'stock split'?", options: ["The division of a company's stock into multiple shares.", "The merging of two companies.", "The process of selling all of a company's stock.", "The creation of a new type of stock."], answer: 0},
+    {text:"What is the difference between a 'bond' and a 'stock'?", options: ["A bond is ownership in a company, a stock is a loan.", "A stock is ownership in a company, a bond is a loan.", "A bond is a type of mutual fund.", "There is no difference."], answer: 1},
+    {text:"What is the purpose of a 'credit score'?", options: ["To measure a person's income.", "To measure a person's ability to repay debt.", "To measure a person's net worth.", "To measure a person's investment portfolio."], answer: 1},
+    {text:"What is 'amortization'?", options: ["The process of paying off a debt over time.", "The process of increasing a company's revenue.", "The process of investing in stocks.", "The process of buying and selling bonds."], answer: 0},
+    {text:"Which of the following is a type of short-term loan?", options: ["Mortgage", "Corporate bond", "Promissory note", "Commercial paper"], answer: 3},
+    {text:"What is a 'bear market'?", options: ["A market where prices are rising.", "A market where prices are falling.", "A market with high trading volume.", "A market with low volatility."], answer: 1},
+    {text:"What is the 'Rule of 72' used for?", options: ["To calculate a person's net worth.", "To estimate how long it will take for an investment to double.", "To calculate a loan's interest rate.", "To determine a company's profitability."], answer: 1},
+    {text:"Which financial statement summarizes a company's revenues and expenses?", options: ["Balance Sheet", "Income Statement", "Cash Flow Statement", "Statement of Retained Earnings"], answer: 1},
+    {text:"What is a 'diversified portfolio'?", options: ["A portfolio with a single type of investment.", "A portfolio with a mix of different investments.", "A portfolio with high-risk investments.", "A portfolio with low-risk investments."], answer: 1},
+    {text:"What is the difference between a 'mutual fund' and an 'ETF'?", options: ["Mutual funds are actively managed, ETFs are passively managed.", "ETFs are actively managed, mutual funds are passively managed.", "Mutual funds are traded throughout the day, ETFs are not.", "ETFs are a type of bond."], answer: 0},
+    {text:"What is 'collateral' in a loan?", options: ["The interest rate on the loan.", "The amount of money borrowed.", "An asset pledged by a borrower to secure a loan.", "The time period for repayment."], answer: 2},
+    {text:"What does 'forex' stand for?", options: ["Foreign Exchange", "Financial Exchange", "Future Options Exchange", "Funded Export"], answer: 0},
+    {text:"What is a 'credit union'?", options: ["A for-profit financial institution.", "A non-profit financial cooperative.", "A type of government agency.", "A type of insurance company."], answer: 1},
+    {text:"What is the purpose of a 'budget'?", options: ["To track investments.", "To plan and manage income and expenses.", "To calculate a company's profit.", "To determine a person's credit score."], answer: 1},
+    {text:"What is the 'S&P 500'?", options: ["A list of the 500 largest banks.", "An index of the stock performance of 500 large U.S. companies.", "A government bond.", "A mutual fund."], answer: 1},
+    {text:"What is a 'dividend'?", options: ["A share of a company's profits paid to stockholders.", "The interest paid on a bond.", "The amount of money borrowed in a loan.", "A type of tax."], answer: 0},
+    {text:"What is a 'mortgage'?", options: ["A short-term loan.", "A loan used to buy real estate.", "A loan used to buy a car.", "A type of credit card."], answer: 1},
+    {text:"What is a 'stock exchange'?", options: ["A place where bonds are traded.", "A place where currencies are traded.", "A marketplace for buying and selling company stocks.", "A government agency that regulates banks."], answer: 2},
+    {text:"What is 'net income'?", options: ["Revenue minus cost of goods sold.", "Total income before taxes.", "Total income after all expenses and taxes.", "Total assets minus total liabilities."], answer: 2},
+    {text:"What is a 'certificate of deposit' (CD)?", options: ["A high-risk investment.", "A savings account with a fixed interest rate and maturity date.", "A type of stock.", "A type of cryptocurrency."], answer: 1},
+    {text:"What is 'microeconomics'?", options: ["The study of the entire economy.", "The study of large corporations.", "The study of how individuals and firms make decisions.", "The study of international trade."], answer: 2},
+    {text:"What is 'macroeconomics'?", options: ["The study of the economy as a whole.", "The study of individual firms and markets.", "The study of consumer behavior.", "The study of stock prices."], answer: 1},
+    {text:"What is a 'balance of trade'?", options: ["The difference between a country's imports and exports.", "The difference between a country's assets and liabilities.", "The difference between a country's income and expenses.", "The difference between a country's stock market and bond market."], answer: 0},
+    {text:"What is 'monopoly'?", options: ["A market with many buyers and sellers.", "A market with one seller and many buyers.", "A market where the government controls prices.", "A market where a few large firms dominate."], answer: 1},
+    {text:"What is 'venture capital'?", options: ["Capital used for government projects.", "Capital provided to startups and small businesses.", "Capital used for foreign exchange.", "Capital used for purchasing bonds."], answer: 1},
+    {text:"What is 'capital gains'?", options: ["Income from wages.", "Profit from the sale of an asset.", "Interest earned on a savings account.", "Dividends received from stocks."], answer: 1},
+    {text:"What is 'fiscal policy'?", options: ["The central bank's actions to influence the money supply.", "Government's use of spending and taxation to influence the economy.", "The regulation of international trade.", "The management of stock exchanges."], answer: 1},
+    {text:"What is a 'subprime mortgage'?", options: ["A mortgage with a low interest rate.", "A mortgage with a high interest rate for borrowers with low credit scores.", "A mortgage for a new home.", "A mortgage that is paid in full."], answer: 1},
+    {text:"What is the 'Fed' in the U.S. financial system?", options: ["The Federal Exchange Board.", "The Federal Reserve System.", "The Financial Exchange Department.", "The Federal Economic Development."], answer: 1},
+    {text:"What is 'financial literacy'?", options: ["The ability to use complex financial software.", "The knowledge and skills to make informed financial decisions.", "The ability to trade stocks.", "The ability to get a loan."], answer: 1},
+    {text:"What is 'compound annual growth rate' (CAGR)?", options: ["The average growth rate of an investment over time.", "The interest rate on a loan.", "The rate of inflation.", "The return on investment in a single year."], answer: 0},
+    {text:"What is a 'proxy' in finance?", options: ["A type of bond.", "A document that authorizes another person to vote on a shareholder's behalf.", "A type of insurance policy.", "A financial report."], answer: 1},
+    {text:"What is a 'hedge fund'?", options: ["A government-regulated investment fund.", "A private investment partnership that uses aggressive strategies.", "A fund that invests only in low-risk assets."], answer: 2},
+    {text:"What is a 'credit default swap'?", options: ["A type of stock.", "A financial derivative that allows an investor to 'swap' their credit.", "A loan agreement.", "A form of insurance on a loan or bond."], answer: 3},
+    {text:"What is 'arbitrage'?", options: ["Buying and selling assets in different markets to profit from a price difference.", "A legal term for bankruptcy.", "A type of tax.", "The process of managing a pension fund."], answer: 0}
+  ];
+
+  let state = { questions: [], answers: [], idx: 0, timer: null, timeLeft: 0, subject: null };
+
+  $('startBtn').onclick = () => {
+    if (!state.subject) {
+      alert('Please select a subject before starting the test.');
+      return;
+    }
+
+    let n = parseInt($('numQuestions').value);
+    const d = parseInt($('duration').value);
+    if (!n || n < 1) n = 5;
+    if (n > 50) n = 50; // Cap at 50 to avoid issues with test bank size
+
+    let pool = [];
+    if (state.subject === "computer") pool = computerQuestions;
+    else if (state.subject === "medical") pool = medicalQuestions;
+    else if (state.subject === "finance") pool = financeQuestions;
+    else pool = sampleQuestionsLarge;
+
+    state.questions = pool.sort(()=>0.5-Math.random()).slice(0,n);
+    state.answers = new Array(n).fill(null);
+    state.idx = 0;
+    state.timeLeft = d * 60;
+    $('setup').classList.add('hidden');
+    $('test').classList.remove('hidden');
+    renderQuestion(); renderNavigator(); updateProgress(); startTimer();
+  };
+
+  function restartTest(){
+    $('result').classList.add('hidden');
+    $('setup').classList.remove('hidden');
+    $('test').classList.add('hidden');
+    document.querySelectorAll('.subject-card').forEach(card => card.classList.remove('selected'));
+    state.subject = null;
+    $('startBtn').disabled = true;
+    clearInterval(state.timer);
+    state.timer = null;
+  }
+
+  function startTimer(){ updateTimer(); state.timer=setInterval(()=>{ state.timeLeft--; if(state.timeLeft<=0){ finishTest(); } updateTimer(); },1000); }
+  function updateTimer(){ let m=Math.floor(state.timeLeft/60); let s=state.timeLeft%60; $('timer').textContent=`${m}:${s<10?"0":""}${s}`; }
+
+  function renderQuestion(){
+    const q=state.questions[state.idx];
+    const c=$('qContainer');
+    c.innerHTML=`
+      <div class="question"><b>Q${state.idx+1}:</b> ${q.text}</div>
+      <div class="options">${q.options.map((o,i)=>`<div onclick="selectOption(${i})" class="${state.answers[state.idx]===i?'selected':''}">${String.fromCharCode(65+i)}. ${o}</div>`).join("")}</div>
+    `;
+    renderNavigator(); updateProgress();
+    updateTimer();
+  }
+  function renderNavigator(){ const nav=$('navigator'); nav.innerHTML=""; state.questions.forEach((_,i)=>{ const b=document.createElement("button"); b.textContent=i+1; if(state.answers[i]!=null) b.classList.add("answered"); if(i===state.idx) b.classList.add("active"); b.onclick=()=>{ state.idx=i; renderQuestion(); }; nav.appendChild(b); }); }
+  function selectOption(i){ state.answers[state.idx]=i; renderQuestion(); }
+  function nextQ(){ if(state.idx<state.questions.length-1){ state.idx++; renderQuestion(); } }
+  function prevQ(){ if(state.idx>0){ state.idx--; renderQuestion(); } }
+  $('finishBtn').onclick=()=>finishTest();
+
+  function finishTest(){
+    clearInterval(state.timer);
+    state.timer = null;
+    $('test').classList.add('hidden');
+    $('result').classList.remove('hidden');
+    let correct=state.answers.filter((a,i)=>a===state.questions[i].answer).length;
+    $('score').textContent=`You scored ${correct} / ${state.questions.length}`;
+    const r=$('review');
+    r.innerHTML="<h3>Review:</h3>";
+    state.questions.forEach((q,i)=>{ const ua=state.answers[i]; const ca=q.answer; let h=`<div class=\"review\"><b>Q${i+1}:</b> ${q.text}<br>`; if(ua===ca){ h+=`<span class=\"correct\">✔ Your Answer: ${q.options[ua]}</span>`; } else if(ua===null){ h+=`<span class=\"wrong\">✘ Not Attempted</span><br><span class=\"correct\">✔ Correct Answer: ${q.options[ca]}</span>`; } else { h+=`<span class=\"wrong\">✘ Your Answer: ${q.options[ua]}</span><br><span class=\"correct\">✔ Correct Answer: ${q.options[ca]}</span>`; } h+="</div>"; r.innerHTML+=h; });
+  }
+
+  function updateProgress(){ let p=((state.idx+1)/state.questions.length)*100; $('progressBar').style.width=p+"%"; }
+
+  // EMOTION RECOGNITION
+  async function startEmoRec(){
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+      await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+      const video=$('emoVideo');
+      navigator.mediaDevices.getUserMedia({ video: true }).then(stream => { video.srcObject = stream; });
+      video.onplay = () => {
+        setInterval(async () => {
+          const detections = await faceapi.detectAllFaces(video,new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+          if(detections && detections.length>0){
+            let emo = Object.entries(detections[0].expressions).sort((a,b)=>b[1]-a[1])[0][0];
+            $('emoLabel').textContent=emo;
+            if (["sad","angry","disgusted"].includes(emo)) { $('emotionAlert').classList.remove('hidden'); }
+          }
+        },3000);
+      };
+    } catch(e){
+      console.warn('Emotion models failed to load or camera blocked', e);
+    }
+  }
+  function closeEmotionAlert(){ $('emotionAlert').classList.add('hidden'); }
+  function goToChatFromAlert(){ $('emotionAlert').classList.add('hidden'); openChatbotPage1(); }
+
+  // WATER BREAK (UNIFIED countdown implementation)
+  let waterInterval = 30 * 60; // 30 minutes in seconds
+  let waterTimeLeft = waterInterval;
+  let waterTimer;
+
+  function startWaterBreakReminder(){ 
+    updateWaterCountdown();
+    if (waterTimer) clearInterval(waterTimer);
+    waterTimer = setInterval(() => {
+      waterTimeLeft--;
+      if (waterTimeLeft <= 0) {
+        $('waterBreak').classList.remove('hidden');
+        waterTimeLeft = waterInterval;
+      }
+      updateWaterCountdown();
+    }, 1000);
+  }
+
+  function updateWaterCountdown() {
+    const m = Math.floor(waterTimeLeft / 60);
+    const s = waterTimeLeft % 60;
+    $('waterCountdown').textContent = `💧 Water in ${m}m ${s}s`;
+  }
+
+  function closeWaterBreak() {
+    $('waterBreak').classList.add('hidden');
+    waterTimeLeft = waterInterval;
+    updateWaterCountdown();
+  }
+
+  /* ===== Smart Resume Builder Logic & career data ===== */
+  const careerData = {
+    "AI": { roadmap:["Learn Python basics","Study Machine Learning","Do projects (image recognition, NLP)","Explore Deep Learning"], courses:["Coursera ML - Andrew Ng","Deep Learning Specialization","Kaggle Competitions"], companies:["Google AI","OpenAI","NVIDIA","Microsoft Research"], tips:["Focus on strong math foundations","Participate in Kaggle","Contribute to open-source","Read NeurIPS/ICML papers"] },
+    "ML": { roadmap:["Learn Python and libraries","Study ML algorithms","Practice with datasets","Learn deployment"], courses:["Machine Learning A-Z on Udemy","Advanced ML on Coursera","Fast.ai"], companies:["Amazon","Netflix","Uber"], tips:["Understand theory","Learn evaluation metrics","Feature engineering","Explore AutoML"] },
+    "DataScience": { roadmap:["Learn stats","Data viz","Programming","End-to-end projects"], courses:["Data Science Professional Certificate on Coursera","Dataquest","DataCamp"], companies:["Facebook","Airbnb","Spotify"], tips:["Storytelling skills","Master SQL","Focus business problems","Build diverse portfolio"] },
+    "Cybersecurity": { roadmap:["Learn Networking & Linux","Security+","Pen testing","CTF portfolio"], courses:["CompTIA Security+","CEH","TryHackMe"], companies:["Palo Alto","CrowdStrike","Cisco"], tips:["Set up home lab","Follow security news","Obtain certs","Join CTFs"] },
+    "WebDev": { roadmap:["HTML, CSS, JS","Learn React","Node & DBs","Build full-stack apps"], courses:["freeCodeCamp","The Odin Project","React & Node on Udemy"], companies:["Google","Meta","Amazon"], tips:["Responsive design","Performance optimization","Accessibility","Open-source contributions"] },
+    "CloudComputing": { roadmap:["Learn cloud fundamentals","Get certified","Hands-on projects","DevOps"], courses:["AWS Cloud Practitioner","Google Cloud Associate","Azure Fundamentals"], companies:["AWS","Microsoft Azure","Google Cloud"], tips:["Start with one provider","Learn cloud security","Cost optimization","Learn Terraform"] }
+  };
+
+  function switchResumeTab(tabName) {
+    document.querySelectorAll('.resume-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.resume-tab-content').forEach(content => content.classList.remove('active'));
+    const clicked = Array.from(document.querySelectorAll('.resume-tab')).find(t => t.textContent.toLowerCase().includes(tabName));
+    if (clicked) clicked.classList.add('active');
+    document.getElementById(tabName + 'ResumeTab')?.classList.add('active');
+    if (tabName === 'create') { document.getElementById('createResumeTab').classList.add('active'); }
+    if (tabName === 'upload') { document.getElementById('uploadResumeTab').classList.add('active'); }
+    if (tabName === 'generate') { document.getElementById('generateResumeTab').classList.add('active'); }
+  }
+
+  function toggleExperience() {
+    const exp = document.getElementById("experience").value;
+    document.getElementById("expDetails").style.display = exp === "Yes" ? "block" : "none";
+    document.getElementById("interestBox").style.display = exp === "No" ? "block" : "none";
+    if (exp === "Yes" && document.getElementById("experienceContainer").children.length === 0) { addExperience(); }
+  }
+
+  function showDomainTips() {
+    const domain = document.getElementById("interest").value;
+    const tipsDiv = document.getElementById("domainTips");
+    const tipsContent = document.getElementById("tipsContent");
+    if (domain && careerData[domain]) {
+      const domainData = careerData[domain];
+      let tipsHTML = `<h4>Performance Tips for ${domain}</h4>`;
+      tipsHTML += "<ul>";
+      domainData.tips.forEach(tip => { tipsHTML += `<li>${tip}</li>`; });
+      tipsHTML += "</ul>";
+      tipsHTML += `<h4>Recommended Courses</h4>`;
+      tipsHTML += "<ul>";
+      domainData.courses.forEach(course => { tipsHTML += `<li>${course}</li>`; });
+      tipsHTML += "</ul>";
+      tipsContent.innerHTML = tipsHTML;
+      tipsDiv.style.display = "block";
+    } else { tipsDiv.style.display = "none"; }
+  }
+
+  function addExperience() {
+    const container = document.getElementById("experienceContainer");
+    const expId = Date.now();
+    const expHTML = `
+      <div class="experience-item" id="exp-${expId}">
+        <button class="remove-btn" onclick="removeExperience('exp-${expId}')">×</button>
+        <h4>Work Experience</h4>
+        <select class="resume-select exp-type">
+          <option value="job">Job</option>
+          <option value="intern">Internship</option>
+        </select>
+        <input type="text" class="resume-input job-title" placeholder="Job Title / Role">
+        <input type="text" class="resume-input company" placeholder="Company Name">
+        <input type="text" class="resume-input duration" placeholder="Duration (e.g., Jan 2020 - Dec 2022)">
+        <textarea class="resume-textarea job-description" placeholder="Description of responsibilities and achievements"></textarea>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforeend', expHTML);
+  }
+  function removeExperience(id) { const elem = document.getElementById(id); if (elem) elem.remove(); }
+
+  function handleFileUpload(files) {
+    if (files.length > 0) {
+      const file = files[0];
+      const fileSize = file.size / 1024 / 1024;
+      if (fileSize > 5) {
+        $('uploadResult').innerHTML = `<div style="color: red; margin: 10px 0;">File is too large. Please upload a file smaller than 5MB.</div>`;
+        return;
+      }
+      $('uploadResult').innerHTML = `<div style="color: green; margin: 10px 0;">✅ File \"${file.name}\" uploaded successfully!</div>`;
+      $('resumeFileName').textContent = file.name;
+      $('uploadedResume').style.display = 'block';
+
+      const feedbackHTML = `
+        <strong>Quick feedback:</strong>
+        <ul style="margin-top:8px; margin-left:18px;">
+          <li>Use concise bullet points and quantify achievements where possible (e.g., \"increased X by 30%\").</li>
+          <li>Keep formatting consistent (same font size, margins) and avoid long paragraphs.</li>
+          <li>Include 5–8 key skills relevant to your target role near the top.</li>
+          <li>Proofread for spelling & grammar; remove outdated info older than ~10 years.</li>
+        </ul>
+      `;
+      $('resumeFeedback').innerHTML = feedbackHTML;
+      window.uploadedResumeFile = file;
+    }
+  }
+
+  function viewUploadedResume() {
+    if (window.uploadedResumeFile) {
+      const resumeWindow = window.open('', '_blank');
+      resumeWindow.document.write(`<html><head><title>Preview</title></head><body><h2>Preview - ${window.uploadedResumeFile.name}</h2><p>Preview placeholder — in a complete implementation the actual file content would be rendered here.</p></body></html>`);
+      resumeWindow.document.close();
+    }
+  }
+
+  function editResume() {
+    if (window.uploadedResumeFile) {
+      alert(`Editing resume: ${window.uploadedResumeFile.name}\n\n(In this demo: edit action is a placeholder.)`);
+    }
+  }
+
+  function deleteResume() {
+    if (window.uploadedResumeFile) {
+      if (confirm('Are you sure you want to delete this resume?')) {
+        $('uploadResult').innerHTML = '';
+        $('uploadedResume').style.display = 'none';
+        $('resumeFeedback').innerHTML = '';
+        window.uploadedResumeFile = null;
+        $('fileInput').value = '';
+      }
+    }
+  }
+
+  function generateResume() {
+    const name = $('name').value;
+    const email = $('email').value;
+    const phone = $('phone').value;
+    const summary = $('summary').value;
+    const education = $('education').value;
+    const skills = $('skills').value;
+    const projects = $('projects').value;
+    const experience = $('experience').value;
+    const interest = $('interest').value;
+
+    window.resumeData = { name, email, phone, summary, education, skills, projects, experience, interest };
+
+    let resumeHTML = `
+      <div class="resume-header generated-resume-header">
+        <h2>GENERATED RESUME</h2>
+        <p>Created from your input</p>
+      </div>
+      <h2>${name || "Your Name"}</h2>
+      <p>${email || "email@example.com"} | ${phone || "Phone Number"}</p><hr>
+    `;
+    if (summary) resumeHTML += `<h3>Professional Summary</h3><p>${summary}</p>`;
+    resumeHTML += `<h3>Education</h3><p>${(education||"Your education details").replace(/\n/g,'<br>')}</p>`;
+    resumeHTML += `<h3>Skills</h3><p>${skills || "Your skills"}</p>`;
+    resumeHTML += `<h3>Projects</h3><p>${(projects||"Your projects").replace(/\n/g,'<br>')}</p>`;
+
+    if (experience === "Yes") {
+      resumeHTML += `<h3>Work Experience</h3>`;
+      const experienceItems = document.querySelectorAll('.experience-item');
+      if (experienceItems.length > 0) {
+        experienceItems.forEach(item => {
+          const type = item.querySelector('.exp-type').value;
+          const title = item.querySelector('.job-title').value;
+          const company = item.querySelector('.company').value;
+          const duration = item.querySelector('.duration').value;
+          const description = item.querySelector('.job-description').value;
+          if (title || company) {
+            resumeHTML += `<div style="margin-bottom:15px;"><strong>${title || ''}</strong> ${type === 'intern' ? '(Internship)' : ''}<br>${company? `<em>${company}</em><br>`:''}${duration? `${duration}<br>` : ''}${description? `<p>${description.replace(/\n/g,'<br>')}</p>`:''}</div>`;
+          }
+        });
+      } else {
+        resumeHTML += `<p>Your work experience</p>`;
+      }
+    }
+
+    $('resumeOutput').innerHTML = resumeHTML;
+
+    let careerHTML = "";
+    if (experience === "No" && interest && careerData[interest]) {
+      const { roadmap, courses, companies } = careerData[interest];
+      careerHTML += `<h2>Career Path for ${interest}</h2><h3>Roadmap</h3><ul>${roadmap.map(r=>`<li>${r}</li>`).join('')}</ul><h3>Recommended Courses</h3><ul>${courses.map(c=>`<li>${c}</li>`).join('')}</ul><h3>Target Companies</h3><ul>${companies.map(c=>`<li>${c}</li>`).join('')}</ul>`;
+    }
+    $('careerPath').innerHTML = careerHTML;
+  }
+
+  function viewGeneratedResume() {
+    if (!window.resumeData) { alert("Please generate a resume first!"); return; }
+    const { name, email, phone, summary, education, skills, projects, experience } = window.resumeData;
+    const resumeWindow = window.open('', '_blank');
+    resumeWindow.document.write(`
+      <!DOCTYPE html><html><head><meta charset="utf-8"><title>${name||'Resume'}</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333}</style></head><body>
+      <h1>${name||'Your Name'}</h1><p>${email||''} | ${phone||''}</p><hr>
+      ${summary?`<h2>Summary</h2><p>${summary}</p>`:''}
+      <h2>Education</h2><p>${(education||'').replace(/\n/g,'<br>')}</p>
+      <h2>Skills</h2><p>${skills||''}</p>
+      <h2>Projects</h2><p>${(projects||'').replace(/\n/g,'<br>')}</p>
+      </body></html>`);
+    resumeWindow.document.close();
+  }
+
+  function saveResume() { alert('In a full implementation this would download a PDF.'); }
+
+  function generateFromTemplate() {
+    const template = $('templateStyle').value;
+    const industry = $('industry').value;
+    const experienceLevel = $('experienceLevel').value;
+    let resumeContent = `
+      <div class="resume-view">
+        <div class="resume-header template-resume-header"><h2>TEMPLATE GENERATED RESUME</h2><p>Style: ${template} | Industry: ${industry} | Level: ${experienceLevel}</p></div>
+        <h1>John Doe</h1><p>john.doe@example.com | (123) 456-7890</p><hr>
+        <div class="resume-section"><h2>Professional Summary</h2><p>Experienced ${industry} professional with ${experienceLevel} expertise seeking new opportunities.</p></div>
+        <div class="resume-section"><h2>Experience</h2><p><strong>${experienceLevel} Position</strong> at Company XYZ (2020-2022)</p><ul><li>Responsibility 1 related to ${industry}</li><li>Responsibility 2 related to ${industry}</li></ul></div>
+        <div class="resume-section"><h2>Education</h2><p><strong>Bachelor's Degree</strong>, University Name</p></div>
+        <div class="resume-section"><h2>Skills</h2><p>Skill 1, Skill 2, Skill 3</p></div>
+      </div>
+    `;
+    $('generatedResumeContent').innerHTML = resumeContent;
+    $('templateOutput').style.display = 'block';
+    $('templateOutput').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function viewTemplateResume() {
+    const template = $('templateStyle').value;
+    const industry = $('industry').value;
+    const experienceLevel = $('experienceLevel').value;
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>Template Resume</title></head><body><h1>Template Resume - ${template}</h1><p>Industry: ${industry} | Level: ${experienceLevel}</p></body></html>`);
+    win.document.close();
+  }
+
+  function saveGeneratedResume() { alert('Download placeholder'); }
+  function editGeneratedResume() { alert('Edit placeholder'); }
+
+  console.log('App loaded.');
+</script>
+
+<script>
+  const themeToggle = $('themeToggle');
+  let isDark = true;
+
+  themeToggle.addEventListener('click', () => {
+    isDark = !isDark;
+    if (isDark) {
+      document.body.classList.remove('light-mode');
+      document.body.classList.add('dark-mode');
+      themeToggle.textContent = '🌙 Dark';
+    } else {
+      document.body.classList.remove('dark-mode');
+      document.body.classList.add('light-mode');
+      themeToggle.textContent = '☀️ Light';
+    }
+  });
+
+  document.body.classList.add('dark-mode');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.body.classList.contains('light-mode')) {
+      document.querySelectorAll('img.invertible').forEach(img => {
+        img.style.transition = 'filter 0.4s ease';
+      });
+    }
+  });
+</script>
+
+</body>
+</html>
