@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -341,21 +344,39 @@
 </style>
 </head>
 
-<body class="min-h-screen gradient-bg flex items-center justify-center p-4 text-white">
 
-<div class="w-full max-w-md" id="loginPage">
-  <div class="login-container rounded-2xl p-8 shadow-2xl">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold text-white mb-2">Student Wellness Hub</h1>
-      <p class="text-white/80">Your AI-powered academic companion</p>
+
+
+
+<body class="min-h-screen gradient-bg flex items-center justify-center p-4 text-white">
+<div class="fixed inset-0 flex items-center justify-center p-4 z-50" id="loginPage">
+  <div class="w-full max-w-md">
+    <div class="login-container rounded-2xl p-8 shadow-2xl">
+      
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Student Wellness Hub</h1>
+        <p class="text-white/80">Your AI-powered academic companion</p>
+      </div>
+
+      <div id="g_id_onload"
+           data-client_id="254273282383-94u544sg55fh6ugqisjkdlc94bjkjc34.apps.googleusercontent.com"
+           data-callback="handleCredentialResponse">
+      </div>
+
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="outline"
+           data-text="signin_with"
+           data-shape="rectangular"
+           data-logo_alignment="left">
+      </div>
+
+      <p id="user" style="font-weight: bold; margin-top: 10px;"></p>
     </div>
-    <form class="space-y-6" id="loginForm">
-      <input class="w-full px-4 py-3 rounded-lg bg-[#0f172a] border border-gray-600 text-white" id="username" placeholder="Username" required type="text"/>
-      <input class="w-full px-4 py-3 rounded-lg bg-[#0f172a] border border-gray-600 text-white" placeholder="Password" required type="password"/>
-      <button class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg" type="submit">Login</button>
-    </form>
   </div>
 </div>
+
 
 <div class="hidden w-full max-w-6xl" id="homePage">
   <div class="flex justify-end mb-4" id="dashboardTopBar">
@@ -662,8 +683,8 @@
   function $(id){ return document.getElementById(id); }
 
   // LOGIN & NAV
-  const loginForm = $('loginForm');
-  const usernameInput = $('username');
+
+// Google handles authentication; no manual form login.
   const welcomeMsg = $('welcomeMsg');
   const loginPage = $('loginPage');
   const homePage = $('homePage');
@@ -672,14 +693,7 @@
   const testPage = $('testPage');
   const resumeBuilderPage = $('resumeBuilderPage');
 
-  loginForm.addEventListener('submit', e => {
-    e.preventDefault();
-    welcomeMsg.textContent = "Welcome back, " + usernameInput.value + "!";
-    loginPage.classList.add('hidden');
-    homePage.classList.remove('hidden');
-    startEmoRec();
-    startWaterBreakReminder();
-  });
+
 
   function openChatbotPage(){ homePage.classList.add('hidden'); chatbotPage.classList.remove('hidden'); }
   function openChatbotPage1(){ homePage.classList.add('hidden'); chatbotPage1.classList.remove('hidden'); }
@@ -1245,6 +1259,56 @@
     }
   });
 </script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+
+<script>
+function handleCredentialResponse(response) {
+  const data = jwt_decode(response.credential);
+  
+  // 1. Display success message (optional, but good for testing)
+  document.getElementById("user").innerText = `Welcome, ${data.name}!`;
+  
+  // 2. --- GUARANTEED PAGE SWAP LOGIC ---
+
+  const loginPage = document.getElementById("loginPage");
+  const homePage = document.getElementById("homePage");
+
+  if (loginPage) {
+      // Forcefully HIDE the login page
+      loginPage.classList.add("hidden"); 
+      loginPage.style.display = 'none'; // The highest priority CSS instruction
+  }
+  
+  if (homePage) {
+      // Forcefully SHOW the dashboard page
+      homePage.classList.remove("hidden"); // Remove the original hidden class
+      homePage.style.display = 'block';    // Set the display to show the content
+
+      // For Tailwind/Flex containers, sometimes 'block' is wrong. Try 'flex' if 'block' doesn't work.
+      // If the dashboard layout is using Tailwind flex: homePage.style.display = 'flex'; 
+      
+      // Update the welcome message on the dashboard (if you have an element with ID "welcomeMsg")
+      const welcomeEl = document.getElementById("welcomeMsg");
+      if (welcomeEl) {
+          welcomeEl.innerText = `Welcome back, ${data.given_name}!`;
+      }
+  }
+
+  console.log("User successfully logged in:", data);
+}
+</script>
+
+
+
+
+
+
+
+
+
 
 </body>
 </html>
